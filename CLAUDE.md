@@ -6,9 +6,18 @@ field. Same stack and look as `hestia-web-tool`: Vite 7, React 18, TypeScript
 strict, Tailwind 3, `@heroicons/react`, `web-serial-polyfill`, flat layout (no
 `src/`), dark slate theme, static deploy to GitHub Pages, installable PWA.
 
-Two top-level modes in `App.tsx`: **Serial (Modbus)** — the ttool port — and
-**Bluetooth status**. `#ble` in the URL opens the BLE page directly (the
-device label's QR code points there); the last mode is remembered.
+Two **separate pages** (Vite multi-page build, `vite.config.ts`), neither
+showing the other:
+
+- `./` — `index.html` → `index.tsx` → `App.tsx`: the Modbus tool (the ttool port).
+- `./ble/` — `ble/index.html` → `ble.tsx` → `BleApp.tsx`: the Bluetooth status
+  page for phones; the device label's QR code points here.
+
+Shared code lands in a common chunk, but the BLE page never imports the
+serial transport or the panels, and the tool never imports `bleTransport`.
+The old `./#ble` link is redirected to `./ble/` by an inline script in
+`index.html` (on load and on `hashchange`). Keep that redirect: printed QR
+codes may still carry it.
 
 ## Layering — keep it
 
@@ -30,8 +39,8 @@ device label's QR code points there); the last mode is remembered.
    `utils/bleStatus.ts` (plain TypeScript, no DOM) decodes them.
    `hooks/useBleStatus.ts` holds the BLE state and is independent of
    `useGateway`: BLE and serial are separate links, and the BLE page must work
-   on a phone with no serial port at all. Both hooks live in `App` so switching
-   modes drops neither connection.
+   on a phone with no serial port at all. `useBleStatus` lives in `BleApp`,
+   `useGateway` in `App`; no page uses both.
 
 ## Behaviour parity with ttool
 
@@ -84,15 +93,20 @@ vector, refuse unknown format versions, ignore trailing bytes.
 
 The field has no network, so the built site is installable and works offline
 after one online visit. No plugin: `public/sw.js` is hand-written and copied
-verbatim by Vite, `public/manifest.webmanifest` uses relative `start_url` /
-`scope` (`./`), and `index.tsx` registers `./sw.js` only when
-`import.meta.env.PROD`, so the dev server never answers from a cache.
+verbatim by Vite. Each page has its own manifest with relative `id` /
+`start_url` / `scope` (`./`): `public/manifest.webmanifest` (the tool) and
+`public/ble/manifest.webmanifest` ("HX 藍牙狀態"), so they install as two
+apps. One worker at the site root serves both: `index.tsx` registers `./sw.js`,
+`ble.tsx` registers `../sw.js` (same script, same default scope), both only
+when `import.meta.env.PROD`, so the dev server never answers from a cache.
 
-- Install precaches the shell by reading `index.html` for its hashed
-  `assets/` files (the first visit loads them before the worker controls the
-  page). Navigations are network-first with a 4 s fallback to the cached
-  shell; `assets/` is cache-first; other same-origin GETs are
-  stale-while-revalidate. A fresh shell prunes assets of older deploys.
+- Two shells, `./` and `ble/` (`SHELLS` in `sw.js`). Install precaches each
+  by reading its HTML for the hashed `assets/` files (the first visit loads
+  them before the worker controls the page). Navigations are network-first
+  with a 4 s fallback to the cached shell of that page (anything under `ble`
+  gets the BLE shell); `assets/` is cache-first; other same-origin GETs are
+  stale-while-revalidate. A fresh shell prunes only assets that no cached
+  shell references: the two pages share chunks.
 - Bump `VERSION` in `sw.js` when its caching logic changes; activate deletes
   every other `hx-web-tool-*` cache. A new deploy alone needs no bump.
 - Icons (`public/icons/icon-192.png`, `icon-512.png`, the 512 also maskable)

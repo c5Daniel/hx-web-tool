@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
-// Smoke test: every tab renders, in both languages, without a device.
+// Smoke test: both pages render, in both languages, without a device, and
+// neither shows the other: the Modbus tool is ./, the Bluetooth status page ./ble/.
 import type { ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import App from '../App';
+import BleApp from '../BleApp';
 import { BlePanel } from '../components/panels/BlePanel';
 import { BleLink } from '../hooks/useBleStatus';
 import { I18nProvider } from '../i18n';
@@ -26,31 +28,28 @@ describe('App', () => {
       expect(html).not.toMatch(/(?:tab|conn|dash|field|common)\.[a-z]+/); // no untranslated key leaked
     });
   }
+
+  it('has no Bluetooth page in it', () => {
+    localStorage.setItem('hx-lang', 'en');
+    localStorage.setItem('hx-tab', 'dashboard');
+    const html = render(<App />);
+    expect(html).not.toContain('HX Bluetooth status</h1>');
+    expect(html).not.toContain('Connect device');
+  });
 });
 
 describe('Bluetooth page', () => {
-  afterEach(() => {
-    localStorage.removeItem('hx-mode');
-    window.location.hash = '';
-  });
-
   for (const lang of ['zh-TW', 'en']) {
-    it(`opens from #ble and explains a browser without Web Bluetooth (${lang})`, () => {
+    it(`renders on its own and explains a browser without Web Bluetooth (${lang})`, () => {
       localStorage.setItem('hx-lang', lang);
-      window.location.hash = '#ble';
-      const html = render(<App />);
+      const html = render(<BleApp />);
       expect(html).toContain(lang === 'en' ? 'HX Bluetooth status' : 'HX 藍牙狀態');
       expect(html).toContain('Bluefy');
-      expect(html).not.toContain(lang === 'en' ? 'HX Gateway Tool' : 'HX 閘道器工具'); // serial bar not shown
+      expect(html).not.toContain(lang === 'en' ? 'HX Gateway Tool' : 'HX 閘道器工具'); // no serial bar
+      expect(html).not.toContain(lang === 'en' ? 'Dashboard' : '儀表板'); // no Modbus tabs
       expect(html).not.toMatch(LEAKED_KEY);
     });
   }
-
-  it('is remembered as the last mode', () => {
-    localStorage.setItem('hx-lang', 'en');
-    localStorage.setItem('hx-mode', 'ble');
-    expect(render(<App />)).toContain('HX Bluetooth status');
-  });
 
   it('shows a connected snapshot in plain language', () => {
     localStorage.setItem('hx-lang', 'en');

@@ -8,6 +8,15 @@
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>HX Web Tool</title>
+    <script>
+      // The Bluetooth status page used to be ./#ble; it is ./ble/ now. Keep old links and QR codes
+      // working, also when #ble is typed onto an open page (a hash change does not reload it).
+      function toBlePage() {
+        if (location.hash.toLowerCase() === '#ble') location.replace('ble/' + location.search);
+      }
+      toBlePage();
+      addEventListener('hashchange', toBlePage);
+    </script>
   </head>
   <body class="bg-slate-900 text-slate-200 antialiased selection:bg-blue-500 selection:text-white">
     <div id="root"></div>

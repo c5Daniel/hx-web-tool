@@ -6,8 +6,8 @@ export const en: Record<keyof typeof zhTW, string> = {
   'app.unsupported': 'This browser has no Web Serial. Use Chrome or Edge (the page must be served over https or localhost).',
   'lang.switch': '中文',
 
-  'mode.serial': 'Serial (Modbus)',
-  'mode.ble': 'Bluetooth status',
+  'app.blePage': 'On a phone, open the Bluetooth status page instead:',
+  'app.blePageLink': 'HX Bluetooth status',
 
   'tab.dashboard': 'Dashboard',
   'tab.link': 'Uplink / Downlink',

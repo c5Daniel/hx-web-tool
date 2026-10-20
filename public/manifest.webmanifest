@@ -2,7 +2,7 @@
   "id": "./",
   "name": "HX Web Tool",
   "short_name": "HX Tool",
-  "description": "Hestia NTN Dongle: Modbus tool over Web Serial and Bluetooth status page",
+  "description": "Hestia NTN Dongle: Modbus tool over Web Serial (the Bluetooth status page is ble/, installed separately)",
   "lang": "zh-Hant",
   "start_url": "./",
   "scope": "./",

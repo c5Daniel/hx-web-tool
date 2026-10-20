@@ -5,8 +5,8 @@ export const zhTW = {
   'app.unsupported': '此瀏覽器不支援 Web Serial，請改用 Chrome 或 Edge（網址須為 https 或 localhost）。',
   'lang.switch': 'English',
 
-  'mode.serial': '序列埠（Modbus）',
-  'mode.ble': '藍牙狀態',
+  'app.blePage': '在手機上要看裝置狀態，請改開藍牙狀態頁：',
+  'app.blePageLink': 'HX 藍牙狀態',
 
   'tab.dashboard': '儀表板',
   'tab.link': '上下行',

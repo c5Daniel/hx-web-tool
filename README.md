@@ -4,7 +4,16 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 用 Web Serial 直接對裝置的 Host Modbus 埠說話。不用裝 Python、不用打指令：開網頁、選 COM 埠、按按鈕。
 
 另有一個**藍牙狀態頁**：在現場用手機透過 Web Bluetooth 就近讀取裝置狀態（唯讀、需配對），
-不需要序列埠，也不需要網路（見下方「離線／安裝」）。頁面最上方切換「序列埠（Modbus）」／「藍牙狀態」。
+不需要序列埠，也不需要網路（見下方「離線／安裝」）。
+
+兩個是**分開的網址**，彼此看不到對方：
+
+| 網址 | 內容 |
+|---|---|
+| `https://<部署網址>/` | Modbus 工具（序列埠） |
+| `https://<部署網址>/ble/` | 藍牙狀態頁（手機、裝置標籤的 QR code） |
+
+舊的 `https://<部署網址>/#ble` 會自動轉到 `/ble/`。
 
 與 [`hestia-web-tool`](https://github.com/CREATIVE5-io/hestia-web-tool) 同一套技術與風格
 （Vite + React + TypeScript + Tailwind，靜態部署到 GitHub Pages）。
@@ -36,7 +45,8 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 
 ## 藍牙狀態頁（手機）
 
-- 直接開 `https://<部署網址>/#ble` 就進到藍牙頁（裝置標籤上的 QR code 指向這裡）；上次用的模式會被記住。
+- 網址是 `https://<部署網址>/ble/`（裝置標籤上的 QR code 指向這裡）。舊的 `/#ble` 會自動轉過來。
+- 裝置開機後只廣播 10 分鐘；清單裡找不到時，把裝置斷電重開，或請 Host 打開藍牙（`0xFFD5`）。
 - **Android**：用 Chrome（或 Edge）。按「連線裝置」，選名稱 `HX-` 開頭的裝置。
 - **第一次連線**手機會跳出系統配對視窗，輸入**裝置標籤上的 6 位數 passkey**；之後同一支手機會自動沿用配對。
 - 配對失敗或取消：按「重新連線」再試。裝置做過出廠重置（兩級都會刪除所有藍牙配對）或換過 passkey 時，
@@ -53,7 +63,8 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 現場通常沒有網路。只要**有網路時開過一次**本頁，之後就能離線開啟：
 
 - Android Chrome：選單 →「安裝應用程式」／「加到主畫面」；電腦 Chrome／Edge：網址列的安裝圖示。
-- 離線時一樣能開啟並使用藍牙頁（藍牙本身不需要網路）；序列埠功能也照常可用。
+- 兩個網址各自安裝成**兩個 App**：在 `/ble/` 安裝的是「HX 藍牙狀態」，點開就是藍牙頁；在 `/` 安裝的是 Modbus 工具。
+- 離線時兩頁都能開啟：藍牙頁照常使用（藍牙本身不需要網路），序列埠功能也照常可用。
 - 有網路時會自動抓最新版（下次開啟生效）。
 - 只有 `npm run build` 產生的正式版會註冊 service worker；`npm run dev` 不會。
 
