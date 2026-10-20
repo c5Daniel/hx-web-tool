@@ -4,9 +4,10 @@ import { Gateway } from '../../hooks/useGateway';
 import { MessageKey, useI18n } from '../../i18n';
 import { hex4 } from '../../utils/modbusRtu';
 import { Dashboard, readDashboard } from '../../utils/ops/info';
-import { LINK_ONLINE, LINK_STATUS_BITS, PCIE_STATUS_LORA_READY, RESET_CAUSE_BITS } from '../../utils/registers';
+import { LINK_ONLINE, LINK_STATUS_BITS, PCIE_STATUS_LORA_READY } from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, KV, Pill } from '../controls';
+import { formatResetCause } from '../format';
 import { failure, Outcome, OutcomeView } from './outcome';
 
 const AUTO_REFRESH_S = 5;
@@ -41,12 +42,6 @@ export const DashboardPanel: React.FC<Props> = ({ gw, dashboard, setDashboard })
 
   const s = dashboard?.sys;
   const n = dashboard?.ntn;
-
-  const resetCause = (v: number) => {
-    if (v === 0) return t('reset.0000');
-    const names = RESET_CAUSE_BITS.filter((b) => v & b).map((b) => t(`reset.${hex4(b)}` as MessageKey));
-    return `${names.join(' + ') || '?'} (0x${hex4(v)})`;
-  };
 
   return (
     <div className="space-y-4">
@@ -90,7 +85,7 @@ export const DashboardPanel: React.FC<Props> = ({ gw, dashboard, setDashboard })
           <KV label={t('field.fw')} value={s?.fwVersion ?? '—'} />
           <KV label={t('field.hw')} value={s?.hwVersion ?? '—'} />
           <KV label={t('field.modbusId')} value={s?.modbusId ?? '—'} />
-          <KV label={t('field.resetCause')} value={s ? resetCause(s.resetCause) : '—'} mono={false} />
+          <KV label={t('field.resetCause')} value={s ? formatResetCause(s.resetCause, t) : '—'} mono={false} />
           <KV
             label={t('field.loraReady')}
             value={s ? <Pill on={(s.pcieStatus & PCIE_STATUS_LORA_READY) !== 0}>{s.pcieStatus & PCIE_STATUS_LORA_READY ? t('val.ready') : t('val.notReady')}</Pill> : '—'}

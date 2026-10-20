@@ -1,12 +1,16 @@
-// Production line and recovery: provision, set-id, assign-id, reset,
-// factory-reset (ttool cmd_provision / cmd_set_id / cmd_assign_id /
-// cmd_reset / cmd_factory_reset).
+// Production line and recovery: provision, ble-passkey, set-id, assign-id,
+// reset, factory-reset (ttool cmd_provision / cmd_ble_passkey / cmd_set_id /
+// cmd_assign_id / cmd_reset / cmd_factory_reset).
 
 import { EXC_PWD_AUTH, hex4, ModbusException, ModbusError, ModbusTimeout } from '../modbusRtu';
 import { asciiBytes, parsePasswordHex, DEFAULT_PASSWORD_HEX, wordsToString } from '../ntnCodec';
 import {
   ASSIGN_ID_ADDR,
   BAUD_DEFAULT_HOST,
+  BLE_PASSKEY_ADDR,
+  BLE_PASSKEY_DIGITS,
+  BLE_PASSKEY_MAX,
+  BLE_PASSKEY_WORDS,
   DEFAULT_MODBUS_ID,
   DEFAULT_SN,
   ENABLE_CODE,
@@ -67,7 +71,12 @@ export interface ProvisionResult {
   record: string;
 }
 
-export async function provision(ctx: OpContext, values: Partial<Record<IdentityKey, string>>): Promise<ProvisionResult> {
+/** Identity fields and/or the BLE passkey (ttool `provision --ble-passkey`), written after the identity. */
+export async function provision(
+  ctx: OpContext,
+  values: Partial<Record<IdentityKey, string>>,
+  blePasskey?: number,
+): Promise<ProvisionResult> {
   const writes = IDENTITY_FIELDS.filter((f) => values[f.key] !== undefined).map((f) => {
     try {
       return { ...f, value: values[f.key]!, regs: asciiFieldWords(values[f.key]!, f.words) };
@@ -75,7 +84,8 @@ export async function provision(ctx: OpContext, values: Partial<Record<IdentityK
       throw new Error(`${f.key} ${(e as Error).message}`);
     }
   });
-  if (!writes.length) throw new Error('provide at least one of SN / Model / SKU');
+  if (blePasskey !== undefined) checkPasskey(blePasskey);
+  if (!writes.length && blePasskey === undefined) throw new Error('provide at least one of SN / Model / SKU / BLE passkey');
   const mismatches: string[] = [];
   await login(ctx);
   await enableEngmode(ctx);
@@ -85,13 +95,79 @@ export async function provision(ctx: OpContext, values: Partial<Record<IdentityK
     if (back === w.value) ctx.log(`[provision] ${w.key}: '${w.value}' written and verified`);
     else mismatch(ctx, mismatches, `[provision] ${w.key}: MISMATCH wrote '${w.value}' read back '${back}'`);
   }
+  if (blePasskey !== undefined) {
+    const back = await writePasskey(ctx, blePasskey);
+    const want = formatPasskey(blePasskey);
+    if (back === blePasskey) ctx.log(`[provision] BLE passkey: ${want} written and verified`);
+    else mismatch(ctx, mismatches, `[provision] BLE passkey: MISMATCH wrote ${want} read back ${formatPasskey(back)}`);
+  }
   const fwVersion = await readVersion(ctx);
   const ok = mismatches.length === 0;
   const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  const fields = writes.map((w) => `${w.key}=${w.value}`).join(',');
+  const fields = [
+    ...writes.map((w) => `${w.key}=${w.value}`),
+    ...(blePasskey !== undefined ? [`ble_passkey=${formatPasskey(blePasskey)}`] : []),
+  ].join(',');
   const record = `${stamp},${fields},fw=${fwVersion},${ok ? 'PASS' : 'FAIL'}`;
   ctx.log(`[provision] record: ${record}`);
   return { ok, mismatches, fwVersion, record };
+}
+
+// ---- BLE passkey (ttool ble-passkey) ----------------------------------------------------------
+
+/** The passkey as printed on the label: always 6 digits. */
+export function formatPasskey(passkey: number): string {
+  return String(passkey).padStart(BLE_PASSKEY_DIGITS, '0');
+}
+
+/** Exactly six digits, leading zeros allowed (it is printed that way), like ttool. */
+export function parseBlePasskey(text: string): number {
+  if (text.length !== BLE_PASSKEY_DIGITS || !/^\d+$/.test(text)) {
+    throw new Error(`BLE passkey must be exactly ${BLE_PASSKEY_DIGITS} digits, got '${text}'`);
+  }
+  return Number(text);
+}
+
+function checkPasskey(passkey: number): void {
+  if (!Number.isInteger(passkey) || passkey < 0 || passkey > BLE_PASSKEY_MAX) {
+    throw new RangeError(`passkey must be 0..${BLE_PASSKEY_MAX}, got ${passkey}`);
+  }
+}
+
+async function readPasskeyWords(ctx: OpContext): Promise<number> {
+  const [hi, lo] = await ctx.client.readInput(BLE_PASSKEY_ADDR, BLE_PASSKEY_WORDS, 'BLE passkey 0xFFD3');
+  return ((hi << 16) >>> 0) + lo;
+}
+
+/** FC 0x10 @0xFFD3, quantity 2, high word first (like the 0xC354 interval); returns the read-back. Caller holds engmode. */
+async function writePasskey(ctx: OpContext, passkey: number): Promise<number> {
+  await ctx.client.writeMultiple(
+    BLE_PASSKEY_ADDR,
+    [(passkey >>> 16) & 0xffff, passkey & 0xffff],
+    `provision ble_passkey @0x${hex4(BLE_PASSKEY_ADDR)}`,
+  );
+  return readPasskeyWords(ctx);
+}
+
+/** The passkey in effect (stored, or the build default on an unprovisioned unit). Reads need engmode too. */
+export async function readBlePasskey(ctx: OpContext): Promise<number> {
+  await login(ctx);
+  await enableEngmode(ctx);
+  const passkey = await readPasskeyWords(ctx);
+  ctx.log(`[ble-passkey] ${formatPasskey(passkey)}`);
+  return passkey;
+}
+
+/** Live for the next pairing; phones already bonded keep their bond. */
+export async function setBlePasskey(ctx: OpContext, passkey: number): Promise<void> {
+  checkPasskey(passkey);
+  await login(ctx);
+  await enableEngmode(ctx);
+  const back = await writePasskey(ctx, passkey);
+  if (back !== passkey) {
+    throw new Error(`[ble-passkey] MISMATCH wrote ${formatPasskey(passkey)} read back ${formatPasskey(back)}`);
+  }
+  ctx.log(`[ble-passkey] ${formatPasskey(passkey)} written and verified; live for the next pairing`);
 }
 
 // ---- Modbus id ----------------------------------------------------------------------------
@@ -261,7 +337,8 @@ export interface FactoryResetResult {
 
 /**
  * Engmode + FC06 0xFD10. Lv1 reverts netcfg, active mode, UART baud, station
- * id and password; Lv2 also wipes SN/Model/SKU (needs the SN typed back).
+ * id and password and deletes every BLE bond; Lv2 also wipes SN/Model/SKU and
+ * the BLE passkey (needs the SN typed back).
  * Afterwards the session follows the device to id 1, 115200 and the default
  * password, and checks the defaults are what it reads.
  */
@@ -289,14 +366,14 @@ export async function factoryReset(
           key: 'fr.lv2',
           vars: { sn: snBefore },
           title: 'Factory reset Lv2',
-          message: `Level 2 wipes the identity of SN '${snBefore}' -- the unit returns to the unprovisioned state and needs re-provisioning. Type the SN to confirm.`,
+          message: `Level 2 wipes the identity of SN '${snBefore}' and resets the BLE passkey -- the unit returns to the unprovisioned state and needs re-provisioning. Type the SN to confirm.`,
           expectText: snBefore,
         }
       : {
           key: 'fr.lv1',
           vars: { sn: snBefore },
           title: 'Factory reset Lv1',
-          message: `Level 1: netcfg, active mode, UART baud, station id and password revert to defaults; SN '${snBefore}' is kept.`,
+          message: `Level 1: netcfg, active mode, UART baud, station id and password revert to defaults and all BLE bonds are deleted; SN '${snBefore}' and the BLE passkey are kept.`,
         },
   );
   if (!confirmed) throw new Error('[factory-reset] aborted by the user');

@@ -3,6 +3,9 @@
 Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）的核心流程搬到網頁上，
 用 Web Serial 直接對裝置的 Host Modbus 埠說話。不用裝 Python、不用打指令：開網頁、選 COM 埠、按按鈕。
 
+另有一個**藍牙狀態頁**：在現場用手機透過 Web Bluetooth 就近讀取裝置狀態（唯讀、需配對），
+不需要序列埠，也不需要網路（見下方「離線／安裝」）。頁面最上方切換「序列埠（Modbus）」／「藍牙狀態」。
+
 與 [`hestia-web-tool`](https://github.com/CREATIVE5-io/hestia-web-tool) 同一套技術與風格
 （Vite + React + TypeScript + Tailwind，靜態部署到 GitHub Pages）。
 
@@ -21,18 +24,45 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 | 設定 | `netcfg [--reset]` / `actmode [--verify-reject]` / `baud` / `debug-console` / `set-password` |
 | LoRa | `lora "AT…" --read` / `lora --poll` / `--poll-reply` / `lora --status` / `lora-interval` |
 | 透傳 | `passthrough enter/exit/fwver/term`（終端機在瀏覽器內） |
-| 工廠 | `provision` / `set-id` / `assign-id` / `reset` / `factory-reset [--wipe-identity]` |
+| 工廠 | `provision [--ble-passkey]` / `ble-passkey` / `set-id` / `assign-id` / `reset` / `factory-reset [--wipe-identity]` |
 | 工具 | 任意 FC 0x03/0x04 讀取、`dlcmd-encode`（離線，含 self-test） |
 
+工廠分頁另有「藍牙配對 passkey (0xFFD3)」：讀取／寫入標籤上的 6 位數 passkey（對應 ttool `ble-passkey`，
+需要工程模式，會自動開啟）；出廠佈建也可一併寫入 passkey（對應 `provision --ble-passkey`，記進生產紀錄）。
+
 **v1 不含**：`ota` / `dfu` / `bus-mute`（需要瀏覽器端的 mcumgr SMP，排在下一階段；目前請用 ttool）。
+
+## 藍牙狀態頁（手機）
+
+- 直接開 `https://<部署網址>/#ble` 就進到藍牙頁（裝置標籤上的 QR code 指向這裡）；上次用的模式會被記住。
+- **Android**：用 Chrome（或 Edge）。按「連線裝置」，選名稱 `HX-` 開頭的裝置。
+- **第一次連線**手機會跳出系統配對視窗，輸入**裝置標籤上的 6 位數 passkey**；之後同一支手機會自動沿用配對。
+- 配對失敗或取消：按「重新連線」再試。裝置做過出廠重置（兩級都會刪除所有藍牙配對）或換過 passkey 時，
+  請先到 Android「設定 → 藍牙」把該裝置**取消配對／忘記**，再重新連線。
+- **iPhone／iPad**：Safari 和 iOS 上的其他瀏覽器都不支援 Web Bluetooth，請改用 **Bluefy** 瀏覽器開啟。
+- 電腦：Chrome 或 Edge。網址必須是 `https://` 或 `localhost`。
+- 顯示內容：衛星連線階段（0xEA71 各位元的白話說明，與儀表板用詞相同）、RSRP／SINR／訊號分級與讀數時間、
+  上行通道、工作模式、主動模式、LoRa 就緒、上次重啟原因、運作時間、模組時間（轉成本地時間）、序號等裝置資訊。
+- 裝置有變化時會通知網頁重讀；另每 5 秒自動更新一次（運作時間、模組時間、讀數時間）。
+- 協定以韌體 repo 的 `docs/BLE_STATUS_SERVICE.md` 為準。
+
+## 離線／安裝（PWA）
+
+現場通常沒有網路。只要**有網路時開過一次**本頁，之後就能離線開啟：
+
+- Android Chrome：選單 →「安裝應用程式」／「加到主畫面」；電腦 Chrome／Edge：網址列的安裝圖示。
+- 離線時一樣能開啟並使用藍牙頁（藍牙本身不需要網路）；序列埠功能也照常可用。
+- 有網路時會自動抓最新版（下次開啟生效）。
+- 只有 `npm run build` 產生的正式版會註冊 service worker；`npm run dev` 不會。
 
 ## 開發
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm test         # vitest：CRC/frame（USER_MANUAL 範例位元組）、dlcmd 參考 frame、編碼器
+npm test         # vitest：CRC/frame（USER_MANUAL 範例位元組）、dlcmd 參考 frame、編碼器、BLE 解碼、passkey 流程
 npm run build    # tsc + vite build -> dist/
+node scripts/gen-icons.mjs   # 重新產生 PWA 圖示（只在改圖時需要；PNG 已進版控）
 ```
 
 推到 `main` 會由 `.github/workflows/deploy.yml` 建置並部署到 GitHub Pages（`base: './'`，任何 repo 名都可）。
@@ -45,9 +75,14 @@ utils/modbusRtu.ts        Modbus RTU master（移植 ttool/modbus_rtu.py）
 utils/ntnCodec.ts         暫存器打包與多步流程（移植 ttool/ntn_codec.py）
 utils/registers.ts        位址、欄位表、解碼
 utils/ops/*.ts            ttool 各 cmd_* 流程，純 async 函式，不依賴 React
-hooks/useGateway.ts       連線、log、session 狀態、一次跑一個操作
-components/               UI；panels/ 一個分頁一個檔案
+utils/bleTransport.ts     Web Bluetooth（唯一碰到 navigator.bluetooth 的地方）
+utils/bleStatus.ts        BLE 狀態／識別 characteristic 解碼（純 TS）
+hooks/useGateway.ts       序列埠連線、log、session 狀態、一次跑一個操作
+hooks/useBleStatus.ts     藍牙連線與最新快照（與 useGateway 互不相干）
+components/               UI；panels/ 一個分頁一個檔案（BlePanel = 藍牙狀態頁）
 i18n/                     繁中（預設）／英文字典
+public/                   sw.js（離線快取）、manifest.webmanifest、icons/
+scripts/gen-icons.mjs     產生 PWA 圖示（只用 Node 內建模組）
 tests/                    vitest + 模擬裝置（tests/mockLink.ts）
 ```
 

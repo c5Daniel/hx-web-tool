@@ -1,25 +1,59 @@
 import React, { useState } from 'react';
 import { Gateway } from '../../hooks/useGateway';
 import { useI18n } from '../../i18n';
-import { assignId, factoryReset, provision, resetMcu, setId } from '../../utils/ops/factory';
-import { IdentityKey, MODBUS_ID_MAX, MODBUS_ID_MIN } from '../../utils/registers';
+import {
+  assignId,
+  factoryReset,
+  formatPasskey,
+  parseBlePasskey,
+  provision,
+  readBlePasskey,
+  resetMcu,
+  setBlePasskey,
+  setId,
+} from '../../utils/ops/factory';
+import { BLE_PASSKEY_DEFAULT, BLE_PASSKEY_DIGITS, IdentityKey, MODBUS_ID_MAX, MODBUS_ID_MIN } from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, Field, Hint, Select, TextInput } from '../controls';
 import { failure, Outcome, OutcomeView } from './outcome';
 
 const validId = (n: number) => Number.isInteger(n) && n >= MODBUS_ID_MIN && n <= MODBUS_ID_MAX;
 
+/** The 6-digit text as a passkey, or null while it is not one. */
+function passkeyOrNull(text: string): number | null {
+  try {
+    return parseBlePasskey(text);
+  } catch {
+    return null;
+  }
+}
+
+/** Digits only, 6 at most: what is printed on the label. */
+const PasskeyInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+  <TextInput
+    inputMode="numeric"
+    autoComplete="off"
+    maxLength={BLE_PASSKEY_DIGITS}
+    placeholder="000000"
+    value={value}
+    onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+  />
+);
+
 const ProvisionCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
   const { t } = useI18n();
   const [form, setForm] = useState<Record<IdentityKey, string>>({ sn: '', model: '', sku: '' });
+  const [passkeyText, setPasskeyText] = useState('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [record, setRecord] = useState<string | null>(null);
   const filled = (Object.keys(form) as IdentityKey[]).filter((k) => form[k] !== '');
+  const passkey = passkeyOrNull(passkeyText);
+  const passkeyBad = passkeyText !== '' && passkey === null;
 
   const doRun = async () => {
     const values: Partial<Record<IdentityKey, string>> = {};
     for (const k of filled) values[k] = form[k];
-    const r = await gw.run(t('fac.prov.title'), (ctx) => provision(ctx, values));
+    const r = await gw.run(t('fac.prov.title'), (ctx) => provision(ctx, values, passkey ?? undefined));
     if (!r.ok) {
       setRecord(null);
       return setOutcome(failure(r, t));
@@ -30,7 +64,7 @@ const ProvisionCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) =
 
   return (
     <DashboardCard title={t('fac.prov.title')} accent="blue">
-      <div className="grid sm:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 gap-3">
         <Field label={t('fac.prov.sn')}>
           <TextInput maxLength={12} value={form.sn} onChange={(e) => setForm({ ...form, sn: e.target.value })} />
         </Field>
@@ -40,8 +74,11 @@ const ProvisionCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) =
         <Field label={t('fac.prov.sku')}>
           <TextInput maxLength={20} value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
         </Field>
+        <Field label={t('fac.prov.passkey')} error={passkeyBad ? t('fac.pk.invalid') : null}>
+          <PasskeyInput value={passkeyText} onChange={setPasskeyText} />
+        </Field>
       </div>
-      <Button className="mt-3" onClick={() => void doRun()} disabled={!idle || !filled.length}>
+      <Button className="mt-3" onClick={() => void doRun()} disabled={!idle || passkeyBad || (!filled.length && passkey === null)}>
         {t('fac.prov.run')}
       </Button>
       <OutcomeView outcome={outcome} />
@@ -54,6 +91,42 @@ const ProvisionCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) =
         </div>
       )}
       <Hint>{t('fac.prov.hint')}</Hint>
+    </DashboardCard>
+  );
+};
+
+const BlePasskeyCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
+  const { t } = useI18n();
+  const [text, setText] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const passkey = passkeyOrNull(text);
+
+  const doRead = async () => {
+    const r = await gw.run(t('fac.pk.read'), readBlePasskey);
+    setOutcome(r.ok ? { tone: 'info', text: t('fac.pk.current', { v: formatPasskey(r.value) }) } : failure(r, t));
+  };
+
+  const doWrite = async () => {
+    if (passkey === null) return;
+    const r = await gw.run(t('fac.pk.title'), (ctx) => setBlePasskey(ctx, passkey));
+    setOutcome(r.ok ? { tone: 'ok', text: t('fac.pk.done', { v: formatPasskey(passkey) }) } : failure(r, t));
+  };
+
+  return (
+    <DashboardCard title={t('fac.pk.title')} accent="green">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label={t('fac.pk.new')} error={text && passkey === null ? t('fac.pk.invalid') : null} className="w-44">
+          <PasskeyInput value={text} onChange={setText} />
+        </Field>
+        <Button onClick={() => void doWrite()} disabled={!idle || passkey === null}>
+          {t('fac.pk.write')}
+        </Button>
+        <Button variant="secondary" onClick={() => void doRead()} disabled={!idle}>
+          {t('fac.pk.read')}
+        </Button>
+      </div>
+      <OutcomeView outcome={outcome} />
+      <Hint>{t('fac.pk.hint', { d: formatPasskey(BLE_PASSKEY_DEFAULT) })}</Hint>
     </DashboardCard>
   );
 };
@@ -188,6 +261,7 @@ export const FactoryPanel: React.FC<{ gw: Gateway }> = ({ gw }) => {
   return (
     <div className="grid lg:grid-cols-2 gap-4">
       <ProvisionCard gw={gw} idle={idle} />
+      <BlePasskeyCard gw={gw} idle={idle} />
       <AssignIdCard gw={gw} idle={idle} />
       <SetIdCard gw={gw} idle={idle} />
       <ResetCard gw={gw} idle={idle} />

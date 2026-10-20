@@ -11,8 +11,8 @@ export const FACTORY_RESET_ADDR = 0xfd10;
 export const DBGCON_ADDR = 0xfd20;
 export const ENABLE_CODE = 0xaa55;
 export const DBGCON_DISABLE_CODE = 0x55aa;
-export const FACTORY_RESET_LV1_CODE = 0x5cc5; // netcfg + modbus id + password (+ actmode, baud)
-export const FACTORY_RESET_LV2_CODE = 0xc55c; // Lv1 + SN / Model / SKU
+export const FACTORY_RESET_LV1_CODE = 0x5cc5; // netcfg + modbus id + password (+ actmode, baud, all BLE bonds)
+export const FACTORY_RESET_LV2_CODE = 0xc55c; // Lv1 + SN / Model / SKU + BLE passkey
 export const ENGMODE_VALID_MS = 5 * 60 * 1000;
 
 // ---- system info block (FC 0x04, 0xEA60..0xEA7D in one read) ------------------
@@ -153,6 +153,15 @@ export const DEFAULT_SN = 'NTN-ADI01001'; // CONFIG_NTN_FACTORY_DEFAULT_SN
 export const MODBUS_ID_MIN = 1;
 export const MODBUS_ID_MAX = 247;
 export const ASSIGN_ID_ADDR = 0xc830;
+
+// ---- BLE passkey (U32 big-endian across 0xFFD3/0xFFD4, login + engineering mode) ------------
+// Read FC 0x04, write FC 0x10 at 0xFFD3 with quantity 2 only; the engmode gate
+// covers reads too, like 0xFFD1. Live for the next pairing; bonds are kept.
+export const BLE_PASSKEY_ADDR = 0xffd3; // high word; low word at 0xFFD4
+export const BLE_PASSKEY_WORDS = 2;
+export const BLE_PASSKEY_DIGITS = 6; // as printed on the label, leading zeros included
+export const BLE_PASSKEY_MAX = 999999;
+export const BLE_PASSKEY_DEFAULT = 123456; // CONFIG_NTN_FACTORY_DEFAULT_BLE_PASSKEY
 
 // ---- LoRa ---------------------------------------------------------------------------------
 export const LORA_AT_ADDR = 0xc750;

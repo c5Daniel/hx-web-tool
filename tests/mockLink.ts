@@ -1,5 +1,6 @@
 import { expect } from 'vitest';
-import { hexDump } from '../utils/modbusRtu';
+import { hexDump, ModbusClient } from '../utils/modbusRtu';
+import type { OpContext, SessionPatch } from '../utils/ops/context';
 import type { ByteLink } from '../utils/serialTransport';
 
 export function h(text: string): Uint8Array {
@@ -73,4 +74,18 @@ export class MockLink implements ByteLink {
     this.waiters = [];
     ws.forEach((w) => w());
   }
+}
+
+/** An OpContext over a scripted link, the way useGateway builds one; session patches and log lines are collected. */
+export function opContext(link: ByteLink, sessions: SessionPatch[] = [], logs: string[] = []): OpContext {
+  return {
+    client: new ModbusClient(link),
+    setLocalBaud: async () => {},
+    localBaud: () => 115200,
+    password: new Uint8Array(8),
+    log: (msg) => logs.push(msg),
+    signal: new AbortController().signal,
+    confirm: async () => true,
+    session: (patch) => sessions.push(patch),
+  };
 }
