@@ -163,6 +163,16 @@ export const BLE_PASSKEY_DIGITS = 6; // as printed on the label, leading zeros i
 export const BLE_PASSKEY_MAX = 999999;
 export const BLE_PASSKEY_DEFAULT = 123456; // CONFIG_NTN_FACTORY_DEFAULT_BLE_PASSKEY
 
+// ---- BLE advertising switch (0xFFD5, login only, not persisted) ---------------------------
+// FC 0x06 write: 0 off now / 1 on with a fresh window / 2 on with no countdown.
+// FC 0x04 read: 0 off / 1 on, waiting for a phone / 2 a paired phone connected.
+// Every boot advertises for the build's window (600 s) and stops if no phone paired.
+export const BLE_SWITCH_ADDR = 0xffd5;
+export type BleSwitchAction = 'off' | 'on' | 'always';
+export const BLE_SWITCH_VALUES: Record<BleSwitchAction, number> = { off: 0, on: 1, always: 2 };
+export const BLE_SWITCH_STATES = [0, 1, 2] as const; // i18n key `bsw.state.<n>`
+export const BLE_WINDOW_MIN = 10; // CONFIG_NTN_BLE_ADV_WINDOW_S default, for the UI text
+
 // ---- LoRa ---------------------------------------------------------------------------------
 export const LORA_AT_ADDR = 0xc750;
 export const LORA_AT_MAX_BYTES = 246; // one FC 0x10 frame of 123 words

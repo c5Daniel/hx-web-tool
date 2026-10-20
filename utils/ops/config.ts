@@ -1,6 +1,6 @@
-// Device settings: UDP netcfg, active mode, UART baud, debug console,
-// engineering mode and the password (ttool netcfg / actmode / baud /
-// debug-console / engmode / set-password).
+// Device settings: UDP netcfg, active mode, UART baud, debug console, BLE
+// switch, engineering mode and the password (ttool netcfg / actmode / baud /
+// debug-console / ble / engmode / set-password).
 
 import { hex4, ModbusException } from '../modbusRtu';
 import { asciiBytes, bytesToWords, parsePasswordHex, passwordChange, wordsToString } from '../ntnCodec';
@@ -16,6 +16,9 @@ import {
   BAUD_PORT_ADDR,
   BAUD_RATES,
   BaudPort,
+  BLE_SWITCH_ADDR,
+  BLE_SWITCH_VALUES,
+  BleSwitchAction,
   DBGCON_ADDR,
   DBGCON_DISABLE_CODE,
   ENABLE_CODE,
@@ -291,4 +294,41 @@ export async function setDebugConsole(ctx: OpContext, enable: boolean): Promise<
   await enableEngmode(ctx);
   await ctx.client.writeSingle(DBGCON_ADDR, enable ? ENABLE_CODE : DBGCON_DISABLE_CODE, 'debug console 0xFD20');
   ctx.log(`[debug-console] device ACKed, console is ${enable ? 'on' : 'off'}`);
+}
+
+// ---- BLE switch (ttool ble) ----------------------------------------------------------------
+
+/** The switch runs on the device's workqueue just after the FC 0x06 echo. */
+const BLE_SWITCH_SETTLE_MS = 300;
+
+/** 0 off / 1 on, waiting for a phone / 2 a paired phone connected. Login only. */
+export async function readBleSwitch(ctx: OpContext): Promise<number> {
+  await login(ctx);
+  const [state] = await ctx.client.readInput(BLE_SWITCH_ADDR, 1, 'BLE switch 0xFFD5');
+  ctx.log(`[ble] ${state}`);
+  return state;
+}
+
+/**
+ * Off now, on with a fresh window, or on with no countdown until the next boot. Not persisted.
+ * Read-back can only confirm on vs off: 'on' and 'always' both read 1 (2 with a paired phone).
+ */
+export async function setBleSwitch(ctx: OpContext, action: BleSwitchAction): Promise<number> {
+  await login(ctx);
+  const value = BLE_SWITCH_VALUES[action];
+  try {
+    await ctx.client.writeSingle(BLE_SWITCH_ADDR, value, `BLE switch ${action}`);
+  } catch (e) {
+    if (e instanceof ModbusException && e.code === 0x04) {
+      throw new Error('[ble] 0x04: the BLE stack is not running on this unit (no-BLE build, or radio init failed)');
+    }
+    throw e;
+  }
+  await sleep(ctx, BLE_SWITCH_SETTLE_MS);
+  const [state] = await ctx.client.readInput(BLE_SWITCH_ADDR, 1, 'BLE switch 0xFFD5');
+  if ((state === 0) !== (value === 0)) {
+    throw new Error(`[ble] MISMATCH: wrote ${value}, read back ${state}`);
+  }
+  ctx.log(`[ble] ${action}: device reads ${state}`);
+  return state;
 }

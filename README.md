@@ -21,7 +21,7 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 |---|---|
 | 儀表板 | `read 0xEA60 30` + `read 0xEB00 51`，並解碼 0xEA71 狀態位元、重啟原因、LoRa 就緒 |
 | 上下行 | `ul` / `ulres --wait` / `dl` / `watch` |
-| 設定 | `netcfg [--reset]` / `actmode [--verify-reject]` / `baud` / `debug-console` / `set-password` |
+| 設定 | `netcfg [--reset]` / `actmode [--verify-reject]` / `baud` / `debug-console` / `ble [off\|on\|always]` / `set-password` |
 | LoRa | `lora "AT…" --read` / `lora --poll` / `--poll-reply` / `lora --status` / `lora-interval` |
 | 透傳 | `passthrough enter/exit/fwver/term`（終端機在瀏覽器內） |
 | 工廠 | `provision [--ble-passkey]` / `ble-passkey` / `set-id` / `assign-id` / `reset` / `factory-reset [--wipe-identity]` |
@@ -29,6 +29,8 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 
 工廠分頁另有「藍牙配對 passkey (0xFFD3)」：讀取／寫入標籤上的 6 位數 passkey（對應 ttool `ble-passkey`，
 需要工程模式，會自動開啟）；出廠佈建也可一併寫入 passkey（對應 `provision --ble-passkey`，記進生產紀錄）。
+設定分頁的「藍牙開關 (0xFFD5)」對應 ttool `ble`：裝置每次開機只廣播 10 分鐘，沒有手機配對就停止，
+這裡可以重新開放 10 分鐘、開到下次開機不倒數，或立即關閉（只需登入，不持久化）。
 
 **v1 不含**：`ota` / `dfu` / `bus-mute`（需要瀏覽器端的 mcumgr SMP，排在下一階段；目前請用 ttool）。
 

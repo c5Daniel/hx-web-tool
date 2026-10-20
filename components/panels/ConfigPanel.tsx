@@ -8,8 +8,10 @@ import {
   parseIntervalArg,
   readActmode,
   readBauds,
+  readBleSwitch,
   readNetcfg,
   setBauds,
+  setBleSwitch,
   setDebugConsole,
   setPassword,
   validateNetcfgValue,
@@ -18,7 +20,17 @@ import {
   writeNetcfg,
 } from '../../utils/ops/config';
 import { parsePasswordHex } from '../../utils/ntnCodec';
-import { ACTMODE_IVL_DISABLED, ACTMODE_MODES, BAUD_RATES, BaudPort, NETCFG_FIELDS, NetcfgKey } from '../../utils/registers';
+import {
+  ACTMODE_IVL_DISABLED,
+  ACTMODE_MODES,
+  BAUD_RATES,
+  BaudPort,
+  BLE_SWITCH_STATES,
+  BLE_WINDOW_MIN,
+  BleSwitchAction,
+  NETCFG_FIELDS,
+  NetcfgKey,
+} from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, Field, Hint, Select, TextInput } from '../controls';
 import { failure, Outcome, OutcomeView } from './outcome';
@@ -294,6 +306,43 @@ const DebugConsoleCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }
   );
 };
 
+const BleSwitchCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
+  const { t } = useI18n();
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const stateText = (s: number) =>
+    (BLE_SWITCH_STATES as readonly number[]).includes(s) ? t(`bsw.state.${s}` as MessageKey) : String(s);
+  const show = (r: { ok: boolean; value?: number }, failed: Outcome | null) =>
+    setOutcome(r.ok && r.value !== undefined ? { tone: 'ok', text: t('bsw.state', { s: stateText(r.value) }) } : failed);
+  const doRead = async () => {
+    const r = await gw.run(t('bsw.title'), (ctx) => readBleSwitch(ctx));
+    show(r, failure(r, t));
+  };
+  const doSet = async (action: BleSwitchAction) => {
+    const r = await gw.run(t('bsw.title'), (ctx) => setBleSwitch(ctx, action));
+    show(r, failure(r, t));
+  };
+  return (
+    <DashboardCard title={t('bsw.title')} accent="blue">
+      <div className="flex flex-wrap gap-3">
+        <Button variant="secondary" onClick={() => void doRead()} disabled={!idle}>
+          {t('bsw.read')}
+        </Button>
+        <Button onClick={() => void doSet('on')} disabled={!idle}>
+          {t('bsw.on', { m: BLE_WINDOW_MIN })}
+        </Button>
+        <Button onClick={() => void doSet('always')} disabled={!idle}>
+          {t('bsw.always')}
+        </Button>
+        <Button variant="secondary" onClick={() => void doSet('off')} disabled={!idle}>
+          {t('bsw.off')}
+        </Button>
+      </div>
+      <OutcomeView outcome={outcome} />
+      <Hint>{t('bsw.hint', { m: BLE_WINDOW_MIN })}</Hint>
+    </DashboardCard>
+  );
+};
+
 const PasswordCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
   const { t } = useI18n();
   const [next, setNext] = useState('');
@@ -346,6 +395,7 @@ export const ConfigPanel: React.FC<{ gw: Gateway }> = ({ gw }) => {
       <BaudCard gw={gw} idle={idle} />
       <div className="space-y-4">
         <DebugConsoleCard gw={gw} idle={idle} />
+        <BleSwitchCard gw={gw} idle={idle} />
         <PasswordCard gw={gw} idle={idle} />
       </div>
     </div>
