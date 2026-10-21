@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ConnectionBar } from './components/ConnectionBar';
@@ -34,7 +34,11 @@ export default function App() {
   const { t } = useI18n();
   const gw = useGateway();
   const [tab, setTabState] = useState<Tab>(loadTab);
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const epoch = gw.epoch;
+  // Tagged with the link it was read over, so a read still in flight when the port closes cannot show up afterwards.
+  const [dashRead, setDashRead] = useState<{ epoch: number; value: Dashboard } | null>(null);
+  const dashboard = dashRead && dashRead.epoch === epoch ? dashRead.value : null;
+  const setDashboard = useCallback((value: Dashboard | null) => setDashRead(value ? { epoch, value } : null), [epoch]);
   const supported = isSerialSupported();
 
   const setTab = (next: Tab) => {
@@ -83,7 +87,8 @@ export default function App() {
           ))}
         </nav>
 
-        <main>
+        {/* Remounted per connection: a disconnect clears every panel's results and forms. */}
+        <main key={epoch}>
           {tab === 'dashboard' && <DashboardPanel gw={gw} dashboard={dashboard} setDashboard={setDashboard} />}
           {tab === 'link' && <LinkPanel gw={gw} />}
           {tab === 'config' && <ConfigPanel gw={gw} />}

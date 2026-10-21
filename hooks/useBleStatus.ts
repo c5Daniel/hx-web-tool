@@ -5,6 +5,11 @@
 // Refresh rules (docs/BLE_STATUS_SERVICE.md §4.2): every notification
 // re-reads status and identity; a timer re-reads status, because uptime,
 // module time and CSQ age move without bumping the change counter.
+//
+// Nothing read over a link outlives it: a disconnect clears the snapshot, so
+// the page goes back to how it looked before connecting. A user disconnect
+// also forgets the device (no Reconnect); a lost link keeps it, with the
+// error, so one tap brings it back.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BleFormatError, BleIdentity, BleStatus, decodeBleCounter, decodeBleIdentity, decodeBleStatus } from '../utils/bleStatus';
@@ -49,10 +54,18 @@ export function useBleStatus() {
     setPhaseState(p);
   }, []);
 
+  const clearSnapshot = useCallback(() => {
+    setStatus(null);
+    setStatusAt(null);
+    setIdentity(null);
+  }, []);
+
   const readSnapshot = useCallback(async (withIdentity: boolean) => {
     const tr = trRef.current;
     const s = decodeBleStatus(await tr.readStatus());
     const id = withIdentity ? decodeBleIdentity(await tr.readIdentity()) : null;
+    // Disconnected while reading: the snapshot is already cleared, keep it that way.
+    if (phaseRef.current !== 'connected') return;
     setStatus(s);
     setStatusAt(Date.now());
     if (id) setIdentity(id);
@@ -112,6 +125,7 @@ export function useBleStatus() {
         }
         const s = decodeBleStatus(first);
         const id = decodeBleIdentity(await tr.readIdentity());
+        if (attempt !== attemptRef.current) return; // abandoned meanwhile: show nothing from it
         setStatus(s);
         setStatusAt(Date.now());
         setIdentity(id);
@@ -129,6 +143,7 @@ export function useBleStatus() {
         if (attempt !== attemptRef.current) return;
         tr.disconnect();
         setNotifying(false);
+        clearSnapshot();
         setCanReconnect(tr.hasDevice);
         setPhase('idle');
         const failure = asFailure(e);
@@ -137,16 +152,20 @@ export function useBleStatus() {
         setError(failure);
       }
     },
-    [setPhase],
+    [clearSnapshot, setPhase],
   );
 
+  /** Back to the page as it opened: no values, no device, no Reconnect. */
   const disconnect = useCallback(() => {
     attemptRef.current++;
     trRef.current.disconnect();
     setNotifying(false);
     setError(null);
+    clearSnapshot();
+    setDeviceName(null);
+    setCanReconnect(false);
     setPhase('idle');
-  }, [setPhase]);
+  }, [clearSnapshot, setPhase]);
 
   useEffect(() => {
     const tr = trRef.current;
@@ -163,6 +182,7 @@ export function useBleStatus() {
       // During connect the failing operation reports; only a live link is "lost".
       if (phaseRef.current !== 'connected') return;
       setNotifying(false);
+      clearSnapshot();
       setPhase('idle');
       setError({ kind: 'lost', detail: 'gattserverdisconnected' });
     };
@@ -171,7 +191,7 @@ export function useBleStatus() {
       tr.onLost = null;
       tr.disconnect();
     };
-  }, [refresh, setPhase]);
+  }, [clearSnapshot, refresh, setPhase]);
 
   useEffect(() => {
     if (phase !== 'connected') return;

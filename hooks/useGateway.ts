@@ -64,6 +64,9 @@ export interface RunOptions {
 export function useGateway() {
   const [settings, setSettingsState] = useState<GatewaySettings>(() => loadJson(SETTINGS_KEY, DEFAULT_SETTINGS));
   const [connected, setConnected] = useState(false);
+  /** Bumped whenever the port closes (disconnect or lost). The page keys its panels on it, so nothing
+   *  read over a link that is gone stays on screen: every field goes back to how a fresh page shows it. */
+  const [epoch, setEpoch] = useState(0);
   const [connecting, setConnecting] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
@@ -231,6 +234,7 @@ export function useGateway() {
       await tr.open(settingsRef.current.driver, settingsRef.current.baud);
       tr.onLost = (err) => {
         setConnected(false);
+        setEpoch((n) => n + 1);
         resetSession();
         abortRef.current?.abort();
         addLog('SYS', `serial port lost: ${describeError(err)}`, true);
@@ -252,6 +256,7 @@ export function useGateway() {
     abortRef.current?.abort();
     await transportRef.current.close();
     setConnected(false);
+    setEpoch((n) => n + 1);
     resetSession();
     addLog('SYS', 'port closed');
   }, [addLog, resetSession]);
@@ -295,6 +300,7 @@ export function useGateway() {
     settings,
     setSettings,
     connected,
+    epoch,
     connecting,
     busy,
     unlocked,

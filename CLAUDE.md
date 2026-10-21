@@ -41,6 +41,14 @@ codes may still carry it.
    `useGateway`: BLE and serial are separate links, and the BLE page must work
    on a phone with no serial port at all. `useBleStatus` lives in `BleApp`,
    `useGateway` in `App`; no page uses both.
+6. Nothing read over a link outlives it. `useGateway` bumps `epoch` when the
+   port closes (disconnect or lost) and `App` keys `<main>` on it, so every
+   panel remounts with fresh state: panels never clear themselves, so keep
+   results in panel-local state. Anything lifted above the panels must be
+   tagged with the epoch it was read in, like the dashboard. Settings, the
+   password and the log survive. `useBleStatus` clears its snapshot on every
+   disconnect and drops reads that finish after one; a user disconnect also
+   forgets the device (no Reconnect), a lost link keeps it with the error.
 
 ## Behaviour parity with ttool
 
