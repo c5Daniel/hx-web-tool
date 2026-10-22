@@ -166,9 +166,13 @@ const DlcmdCard: React.FC<{ imsi: string }> = ({ imsi: deviceImsi }) => {
   );
 };
 
+// The downlink generator is hidden from the page for now; the card, the codec
+// and their tests stay so it can come back by flipping this flag.
+const SHOW_DLCMD_CARD = false;
+
 export const ToolsPanel: React.FC<{ gw: Gateway; imsi: string }> = ({ gw, imsi }) => (
   <div className="grid lg:grid-cols-2 gap-4">
     <RawReadCard gw={gw} />
-    <DlcmdCard imsi={imsi} />
+    {SHOW_DLCMD_CARD && <DlcmdCard imsi={imsi} />}
   </div>
 );

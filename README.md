@@ -36,7 +36,7 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 | LoRa | `lora "AT…" --read` / `lora --poll` / `--poll-reply` / `lora --status` / `lora-interval` |
 | 透傳 | `passthrough enter/exit/fwver/term`（終端機在瀏覽器內） |
 | 工廠 | `provision [--ble-passkey]` / `ble-passkey` / `set-id` / `assign-id` / `reset` / `factory-reset [--wipe-identity]` |
-| 工具 | 任意 FC 0x03/0x04 讀取、`dlcmd-encode`（離線，含 self-test） |
+| 工具 | 任意 FC 0x03/0x04 讀取（`dlcmd-encode` 卡片暫時隱藏，程式與測試保留：`ToolsPanel.tsx` 的 `SHOW_DLCMD_CARD`） |
 
 工廠分頁另有「藍牙配對 passkey (0xFFD3)」：讀取／寫入標籤上的 6 位數 passkey（對應 ttool `ble-passkey`，
 需要工程模式，會自動開啟）；出廠佈建也可一併寫入 passkey（對應 `provision --ble-passkey`，記進生產紀錄）。
