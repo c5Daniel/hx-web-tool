@@ -15,6 +15,10 @@ export const LORA_BISGET_DATA_ADDR = 0xf461;
 export const LORA_REPLY_LEN_ADDR = 0xf860;
 export const LORA_REPLY_DATA_ADDR = 0xf861;
 export const LORA_REPLY_MAX_WORDS = 256;
+// NTN modem AT passthrough: the reply to a 0x9C40 command (or an MCU status line).
+export const NTN_AT_REPLY_LEN_ADDR = 0x9c41;
+export const NTN_AT_REPLY_DATA_ADDR = 0x9c42;
+export const NTN_AT_REPLY_MAX_WORDS = 256;
 export const UPLINK_HOLDING_ADDR = 0xc550;
 export const MODULE_STATUS_ADDR = 0xea71;
 export const MODULE_STATUS_ONLINE = 0x001f;
@@ -253,20 +257,38 @@ export function loraCmdIsBisget(command: string): boolean {
   return command.trim().toUpperCase().startsWith('AT+BISGET');
 }
 
-/** Read one LoRa reply mailbox. Reading every word clears it, so read each reply once. */
-export async function readLoraReply(client: ModbusClient, bisget: boolean, log: Log): Promise<LoraReply> {
-  const lenAddr = bisget ? LORA_BISGET_LEN_ADDR : LORA_REPLY_LEN_ADDR;
-  const dataAddr = bisget ? LORA_BISGET_DATA_ADDR : LORA_REPLY_DATA_ADDR;
-  const tag = bisget ? 'bisget' : 'reply';
-  let n = (await client.readInput(lenAddr, 1, `lora ${tag} length 0x${hex4(lenAddr)}`))[0];
+/** Length register, then the data segmented. Reading every word clears the mailbox MCU-side. */
+async function readByteMailbox(
+  client: ModbusClient,
+  lenAddr: number,
+  dataAddr: number,
+  maxWords: number,
+  tag: string,
+  log: Log,
+): Promise<LoraReply> {
+  let n = (await client.readInput(lenAddr, 1, `${tag} length 0x${hex4(lenAddr)}`))[0];
   if (n === 0) return { lengthWords: 0, raw: new Uint8Array(0), text: '' };
-  if (n > LORA_REPLY_MAX_WORDS) {
-    log(`[lora] length ${n} exceeds max ${LORA_REPLY_MAX_WORDS}; clamping`, true);
-    n = LORA_REPLY_MAX_WORDS;
+  if (n > maxWords) {
+    log(`[${tag}] length ${n} exceeds max ${maxWords}; clamping`, true);
+    n = maxWords;
   }
-  const words = await readSegmented(client, dataAddr, n, `lora ${tag}`);
+  const words = await readSegmented(client, dataAddr, n, tag);
   const raw = stripTrailingNul(wordsToBytes(words));
   return { lengthWords: n, raw, text: decodeAscii(raw) };
+}
+
+/** Read one LoRa reply mailbox. Reading every word clears it, so read each reply once. */
+export async function readLoraReply(client: ModbusClient, bisget: boolean, log: Log): Promise<LoraReply> {
+  return bisget
+    ? readByteMailbox(client, LORA_BISGET_LEN_ADDR, LORA_BISGET_DATA_ADDR, LORA_REPLY_MAX_WORDS, 'lora bisget', log)
+    : readByteMailbox(client, LORA_REPLY_LEN_ADDR, LORA_REPLY_DATA_ADDR, LORA_REPLY_MAX_WORDS, 'lora reply', log);
+}
+
+// ---- NTN AT mailbox --------------------------------------------------------------------
+
+/** Read the NTN AT reply (0x9C41 length / 0x9C42 data). Same read-once rule as the LoRa mailboxes. */
+export async function readNtnAtReply(client: ModbusClient, log: Log): Promise<LoraReply> {
+  return readByteMailbox(client, NTN_AT_REPLY_LEN_ADDR, NTN_AT_REPLY_DATA_ADDR, NTN_AT_REPLY_MAX_WORDS, 'ntn-at', log);
 }
 
 // ---- LoRa node TX interval (vendor node frame over AT+BISCSEND) ---------------------

@@ -17,7 +17,8 @@ export const EXCEPTION_NAMES: Record<number, string> = {
   0x02: 'Illegal Data Address',
   0x03: 'Illegal Data Value',
   0x04: 'Slave Device Failure',
-  // Not in ttool's table: 0xC750 while the firmware holds the LoRa port (USER_MANUAL §15).
+  // Not in ttool's table: 0xC750 while the firmware holds the LoRa port, 0x9C40
+  // while the previous NTN AT command runs (USER_MANUAL §15).
   0x06: 'Slave Device Busy',
   [EXC_TOO_LONG]: 'Uplink Too Long',
   [EXC_PWD_AUTH]: 'Password Auth Required',

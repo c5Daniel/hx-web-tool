@@ -31,7 +31,7 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 | 分頁 | 對應 ttool |
 |---|---|
 | 儀表板 | `read 0xEA60 30` + `read 0xEB00 51`，並解碼 0xEA71 狀態位元、重啟原因、LoRa 就緒 |
-| 上下行 | `ul` / `ulres --wait` / `dl` / `watch` |
+| 上下行 | `ul` / `ulres --wait` / `dl` / `watch` / `ntn-at "AT…"` / `ntn-at --poll`（NTN 模組 AT，`0x9C40` → `0x9C41`/`0x9C42`） |
 | 設定 | `netcfg [--reset]` / `actmode [--verify-reject]` / `baud` / `debug-console` / `ble [off\|on\|always]` / `set-password` |
 | LoRa | `lora "AT…" --read` / `lora --poll` / `--poll-reply` / `lora --status` / `lora-interval` |
 | 透傳 | `passthrough enter/exit/fwver/term`（終端機在瀏覽器內） |

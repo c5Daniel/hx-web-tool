@@ -176,3 +176,10 @@ export const BLE_WINDOW_MIN = 10; // CONFIG_NTN_BLE_ADV_WINDOW_S default, for th
 // ---- LoRa ---------------------------------------------------------------------------------
 export const LORA_AT_ADDR = 0xc750;
 export const LORA_AT_MAX_BYTES = 246; // one FC 0x10 frame of 123 words
+
+// ---- NTN modem AT (reply mailbox 0x9C41/0x9C42 lives in ntnCodec) ---------------------------
+export const NTN_AT_ADDR = 0x9c40;
+export const NTN_AT_MAX_BYTES = 246; // one FC 0x10 frame of 123 words
+// Firmware budget: <= 30 s for its own AT traffic to free the port, then <= 30 s for the reply.
+export const NTN_AT_DEFAULT_WAIT_S = 65;
+export const NTN_AT_POLL_MS = 500;

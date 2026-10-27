@@ -1,14 +1,32 @@
 import React, { useState } from 'react';
 import { Gateway } from '../../hooks/useGateway';
 import { useI18n } from '../../i18n';
-import { asciiPreview, DownlinkResult, hexToBytes, UPLINK_MAX_PAYLOAD_BYTES } from '../../utils/ntnCodec';
+import { asciiPreview, DownlinkResult, hexToBytes, LoraReply, UPLINK_MAX_PAYLOAD_BYTES } from '../../utils/ntnCodec';
 import { hexDump } from '../../utils/modbusRtu';
 import { fetchDownlink, sendUplink, waitUplinkResult, watchDownlink } from '../../utils/ops/link';
+import { ntnAtPayload, ntnAtPoll, ntnAtReplyOk, ntnAtSend } from '../../utils/ops/ntnAt';
+import { NTN_AT_DEFAULT_WAIT_S } from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, Field, Hint, Result, Select, TextArea, TextInput } from '../controls';
 import { failure, Outcome, OutcomeView } from './outcome';
 
 type PayloadMode = 'text' | 'hex' | 'file';
+
+// Read-only queries that end on an OK. Not AT+CIMI: older RMM-T1 software
+// sends no OK after the IMSI, so there it runs the firmware's full 30 s.
+const NTN_QUICK = ['AT', 'ATI', 'AT!CSQSTA=0', 'AT!CNWSTA?'];
+
+function NtnAtReplyView({ reply }: { reply: LoraReply }) {
+  const { t } = useI18n();
+  if (!reply.lengthWords) return <Result tone="warn">{t('ntnat.empty')}</Result>;
+  return (
+    <Result tone={ntnAtReplyOk(reply) ? 'ok' : 'warn'} mono>
+      {t('ntnat.reply', { n: reply.raw.length })}
+      {'\n'}
+      {reply.text.replace(/\r\n|\r/g, '\n').trimEnd()}
+    </Result>
+  );
+}
 
 function DownlinkView({ d }: { d: DownlinkResult }) {
   const { t } = useI18n();
@@ -45,6 +63,20 @@ export const LinkPanel: React.FC<{ gw: Gateway }> = ({ gw }) => {
   const [interval, setIntervalS] = useState(1);
   const [downlinks, setDownlinks] = useState<DownlinkResult[]>([]);
   const [dlOutcome, setDlOutcome] = useState<Outcome | null>(null);
+
+  const [atCmd, setAtCmd] = useState('AT');
+  const [atRead, setAtRead] = useState(true);
+  const [atWaitS, setAtWaitS] = useState(NTN_AT_DEFAULT_WAIT_S);
+  const [atCrlf, setAtCrlf] = useState(true);
+  const [atReply, setAtReply] = useState<LoraReply | null>(null);
+  const [atOutcome, setAtOutcome] = useState<Outcome | null>(null);
+
+  let atCmdError: string | null = null;
+  try {
+    ntnAtPayload(atCmd, atCrlf);
+  } catch (e) {
+    atCmdError = (e as Error).message;
+  }
 
   let payload: Uint8Array | null = null;
   let payloadError: string | null = null;
@@ -93,6 +125,24 @@ export const LinkPanel: React.FC<{ gw: Gateway }> = ({ gw }) => {
       watchDownlink(ctx, interval, (d) => setDownlinks((prev) => [d, ...prev].slice(0, 20))),
     );
     setDlOutcome(failure(r, t));
+  };
+
+  const doNtnAt = async () => {
+    setAtReply(null);
+    const r = await gw.run(`NTN ${atCmd}`, (ctx) => ntnAtSend(ctx, atCmd, { read: atRead, waitS: atWaitS, crlf: atCrlf }));
+    if (!r.ok) return setAtOutcome(failure(r, t));
+    if (r.value) {
+      setAtOutcome(null);
+      setAtReply(r.value);
+    } else setAtOutcome({ tone: atRead ? 'warn' : 'info', text: t(atRead ? 'ntnat.noReply' : 'ntnat.queued') });
+  };
+
+  const doNtnAtPoll = async () => {
+    setAtReply(null);
+    const r = await gw.run(t('ntnat.poll'), ntnAtPoll);
+    if (!r.ok) return setAtOutcome(failure(r, t));
+    setAtOutcome(null);
+    setAtReply(r.value);
   };
 
   return (
@@ -157,6 +207,43 @@ export const LinkPanel: React.FC<{ gw: Gateway }> = ({ gw }) => {
           <DownlinkView key={downlinks.length - i} d={d} />
         ))}
         <Hint>{t('dl.hint')}</Hint>
+      </DashboardCard>
+
+      <DashboardCard title={t('ntnat.title')} accent="cyan" className="lg:col-span-2">
+        <Field label={t('ntnat.cmd')} error={atCmdError}>
+          <TextInput
+            value={atCmd}
+            onChange={(e) => setAtCmd(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && idle && !atCmdError && !!atCmd && void doNtnAt()}
+            spellCheck={false}
+          />
+        </Field>
+        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs text-slate-500 mr-1">{t('ntnat.quick')}</span>
+          {NTN_QUICK.map((q) => (
+            <button key={q} onClick={() => setAtCmd(q)} className="px-2 py-0.5 rounded bg-slate-700/60 hover:bg-slate-600 text-xs font-mono text-slate-200">
+              {q}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-end gap-4">
+          <Checkbox label={t('ntnat.read')} checked={atRead} onChange={setAtRead} />
+          <Field label={t('ntnat.wait')} className="w-28">
+            <TextInput type="number" min={1} value={atWaitS} disabled={!atRead} onChange={(e) => setAtWaitS(Math.max(1, Number(e.target.value) || 1))} />
+          </Field>
+          <Checkbox label={t('ntnat.crlf')} checked={atCrlf} onChange={setAtCrlf} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Button onClick={() => void doNtnAt()} disabled={!idle || !!atCmdError || !atCmd}>
+            {t('ntnat.send')}
+          </Button>
+          <Button variant="secondary" onClick={() => void doNtnAtPoll()} disabled={!idle}>
+            {t('ntnat.poll')}
+          </Button>
+        </div>
+        <OutcomeView outcome={atOutcome} />
+        {atReply && <NtnAtReplyView reply={atReply} />}
+        <Hint>{t('ntnat.hint')}</Hint>
       </DashboardCard>
     </div>
   );
