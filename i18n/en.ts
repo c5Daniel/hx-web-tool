@@ -182,7 +182,7 @@ export const en: Record<keyof typeof zhTW, string> = {
   'bsw.off': 'Off',
   'bsw.state': 'Now: {s}',
   'bsw.state.0': 'Off (not advertising)',
-  'bsw.state.1': 'On, waiting for a phone',
+  'bsw.state.1': 'On, waiting for a device',
   'bsw.state.2': 'On, a paired phone is connected',
   'bsw.hint': 'Every boot the device advertises for {m} minutes and stops if no phone paired. "On for {m} min" opens a fresh window; "no countdown" keeps it on until the next boot; "Off" stops now and drops a connected phone. Not persisted: every boot opens a window again. Login only.',
   'pwd.title': 'Change password',

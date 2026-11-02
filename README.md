@@ -30,7 +30,7 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 
 | 分頁 | 對應 ttool |
 |---|---|
-| 儀表板 | `read 0xEA60 30` + `read 0xEB00 51`，並解碼 0xEA71 狀態位元、重啟原因、LoRa 就緒 |
+| 儀表板 | `read 0xEA60 30` + `read 0xEB00 51`，並解碼 0xEA71 狀態位元、LoRa 就緒 |
 | 上下行 | `ul` / `ulres --wait` / `dl` / `watch` / `ntn-at "AT…"` / `ntn-at --poll`（NTN 模組 AT，`0x9C40` → `0x9C41`/`0x9C42`） |
 | 設定 | `netcfg [--reset]` / `actmode [--verify-reject]` / `baud` / `debug-console` / `ble [off\|on\|always]` / `set-password` |
 | LoRa | `lora "AT…" --read` / `lora --poll` / `--poll-reply` / `lora --status` / `lora-interval` |
@@ -58,7 +58,7 @@ Hestia NTN Dongle 的瀏覽器版 Host 工具——把 `ttool/`（Python CLI）�
 - **iPhone／iPad**：Safari 和 iOS 上的其他瀏覽器都不支援 Web Bluetooth，請改用 **Bluefy** 瀏覽器開啟。
 - 電腦：Chrome 或 Edge。網址必須是 `https://` 或 `localhost`。
 - 顯示內容：衛星連線階段（0xEA71 各位元的白話說明，與儀表板用詞相同）、RSRP／SINR／訊號分級與讀數時間、
-  上行通道、工作模式、主動模式、LoRa 就緒、上次重啟原因、運作時間、模組時間（轉成本地時間）、序號等裝置資訊。
+  上行通道、工作模式、主動模式、LoRa 就緒、運作時間、模組時間（轉成本地時間）、序號等裝置資訊。
 - 裝置有變化時會通知網頁重讀；另每 5 秒自動更新一次（運作時間、模組時間、讀數時間）。
 - 斷線後讀到的狀態全部清空，不會留著舊資料。自己按「中斷連線」會完全回到剛開網頁的樣子；
   意外斷線（走太遠、裝置重開）則保留錯誤說明和「重新連線」按鈕。

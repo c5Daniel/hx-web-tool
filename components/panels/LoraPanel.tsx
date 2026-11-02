@@ -8,9 +8,10 @@ import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, Field, Hint, Result, TextInput } from '../controls';
 import { failure, Outcome, OutcomeView } from './outcome';
 
-// Read-only queries whose reply fits a 512-byte mailbox. Not the bare
-// AT+BISDEV=? (a ~2.6 KB dump) and not AT+BISGET (it consumes the record).
-const QUICK = ['AT', 'AT+VER=?', 'AT+BISFMT=?', 'AT+BISDEV=0?'];
+// Replies that fit a 512-byte mailbox. Not the bare AT+BISDEV=? (a ~2.6 KB
+// dump). AT+BISGET=? is here on purpose (user's call) even though it consumes
+// the module's records: a record read here never reaches active mode 2's uplink.
+const QUICK = ['AT+BISGET=?', 'AT+BISDEV=0?'];
 
 function ReplyView({ reply, box }: { reply: LoraReply; box: number }) {
   const { t } = useI18n();

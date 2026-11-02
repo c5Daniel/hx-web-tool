@@ -28,7 +28,6 @@ import {
 } from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, KV, Pill, Result } from '../controls';
-import { formatResetCause } from '../format';
 
 const WORKMODES: readonly number[] = [WORKMODE_MODBUS, WORKMODE_PT_NTN, WORKMODE_PT_LORA];
 
@@ -268,7 +267,6 @@ export const BlePanel: React.FC<{ ble: BleLink }> = ({ ble }) => {
                   </Pill>
                 }
               />
-              <KV label={t('field.resetCause')} value={formatResetCause(s.resetCause, t)} mono={false} />
               <KV label={t('ble.uptime')} value={formatUptime(s.uptimeS + elapsed, t)} />
               <KV
                 label={t('ble.moduleTime')}

@@ -79,7 +79,7 @@ describe('Bluetooth page', () => {
     expect(html).toContain('-110 dBm');
     expect(html).toContain('Good');
     expect(html).toContain('42 s ago');
-    expect(html).toContain('Software reset');
+    expect(html).not.toContain('Software reset'); // reset cause row removed
     expect(html).toContain('01:00:00'); // uptime 3600 s
     expect(html).toContain('NTN-ADI01001');
     expect(html).not.toMatch(LEAKED_KEY);

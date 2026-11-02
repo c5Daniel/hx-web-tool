@@ -7,7 +7,6 @@ import { Dashboard, readDashboard } from '../../utils/ops/info';
 import { LINK_ONLINE, LINK_STATUS_BITS, PCIE_STATUS_LORA_READY } from '../../utils/registers';
 import { DashboardCard } from '../DashboardCard';
 import { Button, Checkbox, KV, Pill } from '../controls';
-import { formatResetCause } from '../format';
 import { failure, Outcome, OutcomeView } from './outcome';
 
 const AUTO_REFRESH_S = 5;
@@ -85,7 +84,6 @@ export const DashboardPanel: React.FC<Props> = ({ gw, dashboard, setDashboard })
           <KV label={t('field.fw')} value={s?.fwVersion ?? '—'} />
           <KV label={t('field.hw')} value={s?.hwVersion ?? '—'} />
           <KV label={t('field.modbusId')} value={s?.modbusId ?? '—'} />
-          <KV label={t('field.resetCause')} value={s ? formatResetCause(s.resetCause, t) : '—'} mono={false} />
           <KV
             label={t('field.loraReady')}
             value={s ? <Pill on={(s.pcieStatus & PCIE_STATUS_LORA_READY) !== 0}>{s.pcieStatus & PCIE_STATUS_LORA_READY ? t('val.ready') : t('val.notReady')}</Pill> : '—'}
@@ -105,7 +103,6 @@ export const DashboardPanel: React.FC<Props> = ({ gw, dashboard, setDashboard })
           <KV label={t('field.time')} value={n?.time || '—'} />
           <KV label={t('field.lat')} value={n?.latitude || '—'} />
           <KV label={t('field.lon')} value={n?.longitude || '—'} />
-          <KV label={t('field.netMode')} value={n ? n.netMode : '—'} />
           <KV label={t('field.ip')} value={n?.ip || '—'} />
           <KV label={t('field.socket')} value={n ? (n.socket === 0xffff ? t('val.none') : n.socket) : '—'} />
         </DashboardCard>

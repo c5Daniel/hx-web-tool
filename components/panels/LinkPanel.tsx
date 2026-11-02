@@ -14,7 +14,13 @@ type PayloadMode = 'text' | 'hex' | 'file';
 
 // Read-only queries that end on an OK. Not AT+CIMI: older RMM-T1 software
 // sends no OK after the IMSI, so there it runs the firmware's full 30 s.
-const NTN_QUICK = ['AT', 'ATI', 'AT!CSQSTA=0', 'AT!CNWSTA?'];
+// The bare N* words are the module's own status commands and the *_TRIGGER
+// words its mode switches, all sent as-is (no AT prefix).
+const NTN_QUICK = [
+  'AT', 'ATI', 'AT!CSQSTA=0', 'AT!CNWSTA?',
+  'NSTATE', 'NCHECK', 'NGNSS', 'NSIGNAL', 'NREG', 'NMO', 'NTLE', 'NCFG', 'NVER', 'NERR',
+  'IDLE_TRIGGER', 'GNSS_TRIGGER', 'NTN_TRIGGER', 'TN_TRIGGER',
+];
 
 function NtnAtReplyView({ reply }: { reply: LoraReply }) {
   const { t } = useI18n();

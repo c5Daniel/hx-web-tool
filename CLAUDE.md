@@ -65,7 +65,9 @@ read-back verification. Deliberate differences, keep them listed here:
 - Host baud changes close and reopen the same `SerialPort` (Web Serial cannot
   re-time an open port).
 - The LoRa quick-command list avoids bare `AT+BISDEV=?` (a ~2.6 KB dump against
-  a 512-byte mailbox) and `AT+BISGET` (it consumes the module's record).
+  a 512-byte mailbox). It does offer `AT+BISGET=?` (user's call, 2026-10-30)
+  although that consumes the module's records, so one read here never reaches
+  active mode 2's uplink.
 
 Register addresses come from the firmware repo's `docs/NTN_MODBUS_SPEC.md`;
 when a register changes there, change `utils/registers.ts` and the op that uses
