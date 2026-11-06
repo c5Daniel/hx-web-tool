@@ -10,8 +10,9 @@ export async function sendUplink(ctx: OpContext, payload: Uint8Array, raw: boole
 
 /**
  * Poll 0xF060 until a result appears. waitS 0 = one read. Returns the
- * message, or null when nothing arrived in time. The worst case of a mode A
- * uplink is about 10.5 minutes, hence ttool's `--wait 660`.
+ * message, or null when nothing arrived in time. Only the VPN firmware build
+ * (server-ACK mode) writes it, worst case about 10.5 minutes after the write,
+ * hence ttool's `--wait 660`; the OpenSIM build never does.
  */
 export async function waitUplinkResult(ctx: OpContext, waitS: number, intervalS = 1): Promise<string | null> {
   await login(ctx);
