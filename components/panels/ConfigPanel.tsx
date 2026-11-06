@@ -121,6 +121,10 @@ const NetcfgCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
 
 // ---- active mode ---------------------------------------------------------------------------
 
+// The "verify rejects" self-test (ttool actmode --verify-reject) is hidden from
+// the page for now; the op and its button stay so flipping this flag brings it back.
+const SHOW_ACTMODE_VERIFY = false;
+
 const ActmodeCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => {
   const { t } = useI18n();
   const [state, setState] = useState<Actmode | null>(null);
@@ -211,9 +215,11 @@ const ActmodeCard: React.FC<{ gw: Gateway; idle: boolean }> = ({ gw, idle }) => 
         <Button onClick={() => void doWrite()} disabled={!idle || !!csqP.err || !!loraP.err || mode === ''}>
           {t('common.write')}
         </Button>
-        <Button variant="ghost" onClick={() => void doVerify()} disabled={!idle}>
-          {t('act.verifyReject')}
-        </Button>
+        {SHOW_ACTMODE_VERIFY && (
+          <Button variant="ghost" onClick={() => void doVerify()} disabled={!idle}>
+            {t('act.verifyReject')}
+          </Button>
+        )}
       </div>
       <OutcomeView outcome={outcome} mono />
     </DashboardCard>
